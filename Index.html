@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velodrome Start & Lap Timer</title>
+  <style>
+    :root {
+      --bg: #121214;
+      --card: #1e1e24;
+      --accent: #00e676;
+      --warning: #ff3d00;
+      --text: #ffffff;
+      --text-dim: #a0a0b0;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .app-card {
+      background: var(--card);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 420px;
+      text-align: center;
+    }
+    .phase-indicator {
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+    .timer-display {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 4rem;
+      font-weight: bold;
+      margin: 1.5rem 0;
+      color: var(--accent);
+    }
+    .timer-display.countdown {
+      color: #ffab00;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      padding: 1rem;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    
+    #btn-start { background-color: var(--accent); color: #000; grid-column: span 2; }
+    #btn-lap { background-color: #29b6f6; color: #000; }
+    #btn-stop { background-color: var(--warning); color: #fff; }
+    #btn-reset { background-color: #424242; color: #fff; grid-column: span 2; }
+    
+    .laps-container {
+      max-height: 180px;
+      overflow-y: auto;
+      text-align: left;
+      border-top: 1px solid #333;
+      padding-top: 1rem;
+    }
+    .lap-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2a2a35;
+      font-family: monospace;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-card">
+  <div id="phase" class="phase-indicator">Ready</div>
+  <div id="display" class="timer-display countdown">12.0</div>
+
+  <div class="controls">
+    <button id="btn-start" onclick="startSequence()">Start Countdown</button>
+    <button id="btn-lap" onclick="recordLap()" disabled>Lap</button>
+    <button id="btn-stop" onclick="stopTimer()" disabled>Stop</button>
+    <button id="btn-reset" onclick="resetAll()">Reset</button>
+  </div>
+
+  <div class="laps-container">
+    <div id="lap-list"></div>
+  </div>
+</div>
+
+<script>
+  let audioCtx = null;
+  let countdownTimer = null;
+  let stopwatchTimer = null;
+  let startTime = 0;
+  let lapStartTime = 0;
+  let lapCount = 0;
+  let isRunning = false;
+
+  const displayEl = document.getElementById('display');
+  const phaseEl = document.getElementById('phase');
+  const btnStart = document.getElementById('btn-start');
+  const btnLap = document.getElementById('btn-lap');
+  const btnStop = document.getElementById('btn
