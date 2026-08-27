@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Velodrome Start & Lap Timer</title>
@@ -140,19 +140,68 @@
     return audioCtx;
   }
 
-  function playBeep(ctx, freq, duration, atTime) {
+  // Precision Prep Beep (Crisp dual-tone with high attack)
+  function playPrepBeep(ctx, atTime) {
     if (!ctx) return;
     try {
-      const osc = ctx.createOscillator();
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, atTime);
-      gain.gain.setValueAtTime(1, atTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, atTime + duration);
-      osc.connect(gain);
+
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(1000, atTime);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(2000, atTime);
+
+      gain.gain.setValueAtTime(0, atTime);
+      gain.gain.linearRampToValueAtTime(0.8, atTime + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, atTime + 0.12);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(atTime);
-      osc.stop(atTime + duration);
+
+      osc1.start(atTime);
+      osc2.start(atTime);
+      osc1.stop(atTime + 0.12);
+      osc2.stop(atTime + 0.12);
+    } catch (e) {
+      console.warn("Audio play blocked:", e);
+    }
+  }
+
+  // Professional Electronic Starter Horn (Multi-sawtooth filtered sound)
+  function playGoHorn(ctx, atTime) {
+    if (!ctx) return;
+    try {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(466.16, atTime); // Bb4 note
+
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(932.33, atTime); // Bb5 harmonic
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2800, atTime);
+
+      gain.gain.setValueAtTime(0, atTime);
+      gain.gain.linearRampToValueAtTime(0.95, atTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, atTime + 0.55);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(atTime);
+      osc2.start(atTime);
+      osc1.stop(atTime + 0.55);
+      osc2.stop(atTime + 0.55);
     } catch (e) {
       console.warn("Audio play blocked:", e);
     }
@@ -173,19 +222,12 @@
 
     if (ctx) {
       const now = ctx.currentTime;
-      const schedule = [
-        { delay: 2.0, freq: 800, dur: 0.15 },  // 10s
-        { delay: 7.0, freq: 800, dur: 0.15 },  // 5s
-        { delay: 8.0, freq: 800, dur: 0.15 },  // 4s
-        { delay: 9.0, freq: 800, dur: 0.15 },  // 3s
-        { delay: 10.0, freq: 800, dur: 0.15 }, // 2s
-        { delay: 11.0, freq: 800, dur: 0.15 }, // 1s
-        { delay: 12.0, freq: 1600, dur: 0.40 } // 0s (GO)
-      ];
-
-      schedule.forEach(item => {
-        playBeep(ctx, item.freq, item.dur, now + item.delay);
+      // Countdown timing: 10s, 5s, 4s, 3s, 2s, 1s prep beeps
+      [2.0, 7.0, 8.0, 9.0, 10.0, 11.0].forEach(delay => {
+        playPrepBeep(ctx, now + delay);
       });
+      // 0s GO horn
+      playGoHorn(ctx, now + 12.0);
     }
 
     const countdownStart = performance.now();
@@ -261,3 +303,4 @@
 
 </body>
 </html>
+
