@@ -62,6 +62,7 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      touch-action: manipulation;
       transition: transform 0.1s, opacity 0.2s;
     }
     button:active { transform: scale(0.97); }
@@ -96,10 +97,10 @@
   <div id="display" class="timer-display countdown">12.0</div>
 
   <div class="controls">
-    <button id="btn-start" onclick="startSequence()">Start Countdown</button>
-    <button id="btn-lap" onclick="recordLap()" disabled>Lap</button>
-    <button id="btn-stop" onclick="stopTimer()" disabled>Stop</button>
-    <button id="btn-reset" onclick="resetAll()">Reset</button>
+    <button id="btn-start">Start Countdown</button>
+    <button id="btn-lap" disabled>Lap</button>
+    <button id="btn-stop" disabled>Stop</button>
+    <button id="btn-reset">Reset</button>
   </div>
 
   <div class="laps-container">
@@ -120,4 +121,143 @@
   const phaseEl = document.getElementById('phase');
   const btnStart = document.getElementById('btn-start');
   const btnLap = document.getElementById('btn-lap');
-  const btnStop = document.getElementById('btn
+  const btnStop = document.getElementById('btn-stop');
+  const btnReset = document.getElementById('btn-reset');
+  const lapList = document.getElementById('lap-list');
+
+  btnStart.addEventListener('click', startSequence);
+  btnLap.addEventListener('click', recordLap);
+  btnStop.addEventListener('click', stopTimer);
+  btnReset.addEventListener('click', resetAll);
+
+  function getAudioContext() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+    }
+    return audioCtx;
+  }
+
+  function playBeep(ctx, freq, duration, atTime) {
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, atTime);
+      gain.gain.setValueAtTime(1, atTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, atTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(atTime);
+      osc.stop(atTime + duration);
+    } catch (e) {
+      console.warn("Audio play blocked:", e);
+    }
+  }
+
+  async function startSequence() {
+    if (isRunning) return;
+
+    isRunning = true;
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    phaseEl.textContent = 'Countdown';
+
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      await ctx.resume().catch(err => console.warn("Audio resume error:", err));
+    }
+
+    if (ctx) {
+      const now = ctx.currentTime;
+      const schedule = [
+        { delay: 2.0, freq: 800, dur: 0.15 },  // 10s
+        { delay: 7.0, freq: 800, dur: 0.15 },  // 5s
+        { delay: 8.0, freq: 800, dur: 0.15 },  // 4s
+        { delay: 9.0, freq: 800, dur: 0.15 },  // 3s
+        { delay: 10.0, freq: 800, dur: 0.15 }, // 2s
+        { delay: 11.0, freq: 800, dur: 0.15 }, // 1s
+        { delay: 12.0, freq: 1600, dur: 0.40 } // 0s (GO)
+      ];
+
+      schedule.forEach(item => {
+        playBeep(ctx, item.freq, item.dur, now + item.delay);
+      });
+    }
+
+    const countdownStart = performance.now();
+    countdownTimer = setInterval(() => {
+      const elapsed = (performance.now() - countdownStart) / 1000;
+      const remaining = 12.0 - elapsed;
+
+      if (remaining <= 0) {
+        clearInterval(countdownTimer);
+        displayEl.textContent = '0.00';
+        displayEl.classList.remove('countdown');
+        startStopwatch();
+      } else {
+        displayEl.textContent = remaining.toFixed(1);
+      }
+    }, 50);
+  }
+
+  function startStopwatch() {
+    phaseEl.textContent = 'Racing';
+    btnLap.disabled = false;
+    startTime = performance.now();
+    lapStartTime = startTime;
+
+    stopwatchTimer = setInterval(() => {
+      const current = performance.now();
+      const elapsed = (current - startTime) / 1000;
+      displayEl.textContent = formatTime(elapsed);
+    }, 10);
+  }
+
+  function recordLap() {
+    if (!isRunning || phaseEl.textContent !== 'Racing') return;
+    
+    const now = performance.now();
+    lapCount++;
+    const lapTime = (now - lapStartTime) / 1000;
+    const totalTime = (now - startTime) / 1000;
+    lapStartTime = now;
+
+    const lapRow = document.createElement('div');
+    lapRow.className = 'lap-item';
+    lapRow.innerHTML = `<span>Lap ${lapCount}</span> <span>${formatTime(lapTime)} (${formatTime(totalTime)})</span>`;
+    lapList.prepend(lapRow);
+  }
+
+  function stopTimer() {
+    clearInterval(countdownTimer);
+    clearInterval(stopwatchTimer);
+    btnStop.disabled = true;
+    btnLap.disabled = true;
+    phaseEl.textContent = 'Stopped';
+    isRunning = false;
+  }
+
+  function resetAll() {
+    stopTimer();
+    displayEl.textContent = '12.0';
+    displayEl.classList.add('countdown');
+    phaseEl.textContent = 'Ready';
+    btnStart.disabled = false;
+    lapList.innerHTML = '';
+    lapCount = 0;
+  }
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = (seconds % 60).toFixed(2);
+    const padSecs = secs < 10 ? '0' + secs : secs;
+    return mins > 0 ? `${mins}:${padSecs}` : `${secs}`;
+  }
+</script>
+
+</body>
+</html>
